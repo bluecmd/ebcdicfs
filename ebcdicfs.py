@@ -10,9 +10,18 @@ import fuse
 fuse.fuse_python_api = (0, 2)
 
 class EbcdicFS(fuse.Fuse):
-  def __init__(self, backing):
+  def __init__(self, backing, codepage='cp037'):
     fuse.Fuse.__init__(self)
     self.backing = backing
+    self.codepage = codepage
+
+  def to_ebcdic(self, asciibytes):
+    """Convert a bytestring to the class codepage"""
+    return asciibytes.decode().encode(self.codepage)
+
+  def to_local(self, ebcdicbytes):
+    """ Convert from the class codepage to the local one"""
+    return ebcdicbytes.decode(self.codepage)
 
   def readdir(self, path, offset):
     for r in '.', '..':
@@ -36,13 +45,13 @@ class EbcdicFS(fuse.Fuse):
   def read (self, path, length, offset):
     with open(os.path.join(self.backing, path[1:]), 'rb') as f:
         f.seek(offset, os.SEEK_SET)
-        return f.read(length).upper()
+        return self.to_local(f.read(length))
     return r
 
   def write (self, path, data, offset):
     with open(os.path.join(self.backing, path[1:]), 'ab') as f:
         f.seek(offset, os.SEEK_SET)
-        return f.write(data.lower())
+        return f.write(to_ebcdic(data))
 
 if __name__ == '__main__':
   backing = sys.argv[1]
